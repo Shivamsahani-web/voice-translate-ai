@@ -344,8 +344,8 @@ async function handleTranslate(originalText) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         text: originalText,
-        sourceLang: LANG_META[state.inputLang].label,
-        targetLang: LANG_META[state.outputLang].label,
+        sourceLang: state.inputLang,
+        targetLang: state.outputLang,
       }),
     });
     if (!res.ok) throw new Error("translate failed");
