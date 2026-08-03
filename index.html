@@ -355,7 +355,10 @@ async function handleTranslate(originalText) {
     speakText(translated, state.outputLang);
     addToHistory(originalText, translated);
   } catch (e) {
-    document.getElementById("translatedText").textContent = "Translate nahi ho paaya, dobara try karo.";
+    const msg = !navigator.onLine
+      ? "📡 Internet connection nahi hai. Wi-Fi ya data on karke dobara try karo."
+      : "Translate nahi ho paaya, dobara try karo.";
+    document.getElementById("translatedText").textContent = msg;
   }
 }
 
