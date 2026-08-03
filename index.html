@@ -112,18 +112,12 @@
   <div class="card" style="margin-bottom:14px; display:flex; align-items:center; gap:10px;">
     <div class="lang-box">
       <div class="result-label">Bologe</div>
-      <select id="inputLangSelect">
-        <option value="hi">हिंदी Hindi</option>
-        <option value="en">English</option>
-      </select>
+      <select id="inputLangSelect"></select>
     </div>
     <button id="swapBtn" class="swap-btn">⇄</button>
     <div class="lang-box">
       <div class="result-label">Sunoge</div>
-      <select id="outputLangSelect">
-        <option value="en">English</option>
-        <option value="hi">हिंदी Hindi</option>
-      </select>
+      <select id="outputLangSelect"></select>
     </div>
   </div>
 
@@ -151,6 +145,7 @@
 
   <!-- RESULTS -->
   <div id="resultCard" class="card fade" style="margin-bottom:16px; display:none;">
+    <p id="voiceWarning" style="display:none; background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.3); color:var(--err); font-size:12px; padding:10px 12px; border-radius:10px; margin:0 0 14px; line-height:1.5;"></p>
     <div style="margin-bottom:14px;">
       <div class="result-label" id="originalLabel">Original</div>
       <div id="originalText" style="font-size:15px; line-height:1.5;"></div>
@@ -178,8 +173,31 @@
 
 <script>
 const LANG_META = {
-  hi: { label: "Hindi", nativeLabel: "हिंदी", recogCode: "hi-IN", speechPrefix: "hi" },
+  hi: { label: "Hindi", nativeLabel: "हिंदी Hindi", recogCode: "hi-IN", speechPrefix: "hi" },
   en: { label: "English", nativeLabel: "English", recogCode: "en-US", speechPrefix: "en" },
+  es: { label: "Spanish", nativeLabel: "Español Spanish", recogCode: "es-ES", speechPrefix: "es" },
+  fr: { label: "French", nativeLabel: "Français French", recogCode: "fr-FR", speechPrefix: "fr" },
+  de: { label: "German", nativeLabel: "Deutsch German", recogCode: "de-DE", speechPrefix: "de" },
+  ja: { label: "Japanese", nativeLabel: "日本語 Japanese", recogCode: "ja-JP", speechPrefix: "ja" },
+  zh: { label: "Chinese", nativeLabel: "中文 Chinese", recogCode: "zh-CN", speechPrefix: "zh" },
+  ko: { label: "Korean", nativeLabel: "한국어 Korean", recogCode: "ko-KR", speechPrefix: "ko" },
+  ar: { label: "Arabic", nativeLabel: "العربية Arabic", recogCode: "ar-SA", speechPrefix: "ar" },
+  ru: { label: "Russian", nativeLabel: "Русский Russian", recogCode: "ru-RU", speechPrefix: "ru" },
+  pt: { label: "Portuguese", nativeLabel: "Português Portuguese", recogCode: "pt-BR", speechPrefix: "pt" },
+  it: { label: "Italian", nativeLabel: "Italiano Italian", recogCode: "it-IT", speechPrefix: "it" },
+  tr: { label: "Turkish", nativeLabel: "Türkçe Turkish", recogCode: "tr-TR", speechPrefix: "tr" },
+  th: { label: "Thai", nativeLabel: "ไทย Thai", recogCode: "th-TH", speechPrefix: "th" },
+  bn: { label: "Bengali", nativeLabel: "বাংলা Bengali", recogCode: "bn-IN", speechPrefix: "bn" },
+  ur: { label: "Urdu", nativeLabel: "اردو Urdu", recogCode: "ur-PK", speechPrefix: "ur" },
+  ta: { label: "Tamil", nativeLabel: "தமிழ் Tamil", recogCode: "ta-IN", speechPrefix: "ta" },
+  te: { label: "Telugu", nativeLabel: "తెలుగు Telugu", recogCode: "te-IN", speechPrefix: "te" },
+  mr: { label: "Marathi", nativeLabel: "मराठी Marathi", recogCode: "mr-IN", speechPrefix: "mr" },
+  gu: { label: "Gujarati", nativeLabel: "ગુજરાતી Gujarati", recogCode: "gu-IN", speechPrefix: "gu" },
+  pa: { label: "Punjabi", nativeLabel: "ਪੰਜਾਬੀ Punjabi", recogCode: "pa-IN", speechPrefix: "pa" },
+  ml: { label: "Malayalam", nativeLabel: "മലയാളം Malayalam", recogCode: "ml-IN", speechPrefix: "ml" },
+  kn: { label: "Kannada", nativeLabel: "ಕನ್ನಡ Kannada", recogCode: "kn-IN", speechPrefix: "kn" },
+  id: { label: "Indonesian", nativeLabel: "Indonesia", recogCode: "id-ID", speechPrefix: "id" },
+  vi: { label: "Vietnamese", nativeLabel: "Tiếng Việt Vietnamese", recogCode: "vi-VN", speechPrefix: "vi" },
 };
 
 const state = {
@@ -199,8 +217,19 @@ try {
 
 const inputLangSelect = document.getElementById("inputLangSelect");
 const outputLangSelect = document.getElementById("outputLangSelect");
-inputLangSelect.value = state.inputLang;
-outputLangSelect.value = state.outputLang;
+
+function populateLangSelect(selectEl, selectedValue) {
+  selectEl.innerHTML = "";
+  Object.keys(LANG_META).forEach((code) => {
+    const opt = document.createElement("option");
+    opt.value = code;
+    opt.textContent = LANG_META[code].nativeLabel;
+    if (code === selectedValue) opt.selected = true;
+    selectEl.appendChild(opt);
+  });
+}
+populateLangSelect(inputLangSelect, state.inputLang);
+populateLangSelect(outputLangSelect, state.outputLang);
 
 inputLangSelect.addEventListener("change", (e) => { state.inputLang = e.target.value; });
 outputLangSelect.addEventListener("change", (e) => { state.outputLang = e.target.value; });
@@ -347,12 +376,28 @@ async function speakText(text, langCode) {
   const voices = await loadVoices();
   const prefix = LANG_META[langCode].speechPrefix;
   let voice = voices.find(v => v.lang.toLowerCase().startsWith(prefix));
-  if (!voice) voice = voices.find(v => v.lang.toLowerCase().startsWith("en"));
+  const warningEl = document.getElementById("voiceWarning");
+
+  if (!voice) {
+    voice = voices.find(v => v.lang.toLowerCase().startsWith("en"));
+    if (warningEl) {
+      warningEl.style.display = "block";
+      warningEl.textContent = `⚠️ ${LANG_META[langCode].label} ki awaaz is phone mein installed nahi hai — Settings → Text-to-Speech → Install voice data mein jaake add karo. Filhaal English awaaz use ho rahi hai.`;
+    }
+  } else if (warningEl) {
+    warningEl.style.display = "none";
+  }
 
   const utterance = new SpeechSynthesisUtterance(text);
   if (voice) utterance.voice = voice;
   utterance.lang = voice ? voice.lang : LANG_META[langCode].recogCode;
   utterance.rate = 1;
+  utterance.onerror = () => {
+    if (warningEl) {
+      warningEl.style.display = "block";
+      warningEl.textContent = `⚠️ Awaaz nahi baj paayi. Phone mein ${LANG_META[langCode].label} voice pack install karke dobara try karo.`;
+    }
+  };
   window.speechSynthesis.speak(utterance);
 }
 
