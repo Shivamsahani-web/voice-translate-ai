@@ -1,3 +1,8 @@
+// Language codes that need a specific regional variant for this translation endpoint
+const LANG_OVERRIDES = {
+  zh: "zh-CN",
+};
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
@@ -10,15 +15,10 @@ export default async function handler(req, res) {
     return;
   }
 
-  const prompt = `Translate the following text from ${sourceLang} to ${targetLang}. Translate naturally, preserving meaning and tone rather than doing a literal word-for-word translation. If the text is already in ${targetLang}, just return it as-is (lightly corrected if needed).
+  const sl = LANG_OVERRIDES[sourceLang] || sourceLang;
+  const tl = LANG_OVERRIDES[targetLang] || targetLang;
 
-Return ONLY the translated text — no quotes, no explanation, no labels, no commentary of any kind.
-
-Text to translate:
-${text}`;
-
-  const model = "gemini-2.5-flash";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(sl)}&tl=${encodeURIComponent(tl)}&dt=t&q=${encodeURIComponent(text)}`;
 
   const maxAttempts = 3;
   let lastError = null;
@@ -26,33 +26,21 @@ ${text}`;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       if (attempt > 1) {
-        await new Promise((r) => setTimeout(r, 1000 * attempt));
+        await new Promise((r) => setTimeout(r, 800 * attempt));
       }
 
       const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            maxOutputTokens: 2000,
-            temperature: 0.3,
-            thinking_config: { thinking_budget: 0 },
-          },
-        }),
+        headers: { "User-Agent": "Mozilla/5.0" },
       });
 
       if (!response.ok) {
-        const errText = await response.text();
-        console.error(`Gemini API error (attempt ${attempt}):`, errText);
-        lastError = errText;
-        if (response.status === 503 || response.status === 429) continue;
-        res.status(502).json({ error: "Upstream API error" });
-        return;
+        lastError = `HTTP ${response.status}`;
+        continue;
       }
 
       const data = await response.json();
-      const translatedText = (data?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+      const segments = data?.[0] || [];
+      const translatedText = segments.map((seg) => seg?.[0] || "").join("").trim();
 
       if (!translatedText) {
         lastError = "empty translation";
@@ -62,11 +50,11 @@ ${text}`;
       res.status(200).json({ translatedText });
       return;
     } catch (err) {
-      console.error(`Translate function error (attempt ${attempt}):`, err);
+      console.error(`Translate attempt ${attempt} failed:`, err.message);
       lastError = err.message;
     }
   }
 
   console.error("All translate attempts failed:", lastError);
-  res.status(502).json({ error: "Translation failed after retries. Google's servers may be busy — please try again shortly." });
+  res.status(502).json({ error: "Translation failed. Please try again." });
 }
